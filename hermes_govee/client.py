@@ -8,6 +8,7 @@ from typing import List
 from hermes_govee.core.exceptions import GoveeAuthError, UnknownDeviceError
 from hermes_govee.core.models import DeviceInfo
 from hermes_govee.core.transport import AsyncBaseTransport, BaseTransport
+from hermes_govee.devices.group import DeviceGroup
 from hermes_govee.devices.light import GoveeLight
 
 
@@ -75,6 +76,15 @@ class GoveeClient:
             if info.type == device_type
         ]
 
+    def all_lights(self) -> DeviceGroup:
+        """Return a DeviceGroup containing all lights in the account."""
+        lights = self.devices_by_type("light")
+        return DeviceGroup(lights)
+
+    def create_group(self, devices: List[GoveeLight]) -> DeviceGroup:
+        """Wrap a list of GoveeLight objects into a DeviceGroup."""
+        return DeviceGroup(devices)
+
     def close(self) -> None:
         self._transport.close()
 
@@ -117,6 +127,15 @@ class AsyncGoveeClient:
             for info in await self.devices()
             if info.type == device_type
         ]
+
+    async def all_lights(self) -> DeviceGroup:
+        """Return a DeviceGroup containing all lights in the account (async)."""
+        lights = await self.devices_by_type("light")
+        return DeviceGroup(lights)
+
+    async def create_group(self, devices: List[GoveeLight]) -> DeviceGroup:
+        """Wrap a list of GoveeLight objects into a DeviceGroup (async)."""
+        return DeviceGroup(devices)
 
     async def close(self) -> None:
         await self._transport.close()

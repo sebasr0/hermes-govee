@@ -1,9 +1,13 @@
 """Govee light device with power, brightness, color, and scene control."""
 
-from typing import Tuple
+from __future__ import annotations
+
+from typing import Optional, Tuple
 
 from hermes_govee.core.models import Color, DeviceInfo, LightState
+from hermes_govee.core.snapshot import LightSnapshot
 from hermes_govee.devices.base import GoveeDevice
+from hermes_govee.presets.ambiences import PresetAmbience
 from hermes_govee.utils import rgb_to_tuple
 
 
@@ -65,6 +69,42 @@ class GoveeLight(GoveeDevice):
             scene=properties.get("scene"),
         )
 
+    # --- Preset helpers (sync) ---
+
+    def apply_preset_color(self, color: Tuple[int, int, int]) -> None:
+        """Set brightness to 100, apply color, and turn on."""
+        self.set_brightness(100)
+        self.set_color(color)
+        self.turn_on()
+
+    def apply_ambience(self, ambience: PresetAmbience) -> None:
+        """Apply a preset ambience: color + brightness + optional Kelvin."""
+        if ambience.kelvin is not None:
+            self.set_color_temperature(ambience.kelvin)
+        else:
+            self.set_color(ambience.color)
+        self.set_brightness(ambience.brightness)
+        self.turn_on()
+
+    def toggle(self) -> None:
+        """Toggle the light on/off based on current state."""
+        current = self.state()
+        if current.power == "on":
+            self.turn_off()
+        else:
+            self.turn_on()
+
+    def snapshot(self) -> LightSnapshot:
+        """Capture the current light state as an immutable snapshot."""
+        current = self.state()
+        return LightSnapshot(
+            power=current.power,
+            brightness=current.brightness,
+            color=current.color,
+            color_temperature=current.color_temperature,
+            scene=current.scene,
+        )
+
     # --- Async API ---
 
     async def turn_on_async(self) -> None:
@@ -102,4 +142,40 @@ class GoveeLight(GoveeDevice):
             color=color,
             color_temperature=properties.get("colorTem"),
             scene=properties.get("scene"),
+        )
+
+    # --- Preset helpers (async) ---
+
+    async def apply_preset_color_async(self, color: Tuple[int, int, int]) -> None:
+        """Set brightness to 100, apply color, and turn on (async)."""
+        await self.set_brightness_async(100)
+        await self.set_color_async(color)
+        await self.turn_on_async()
+
+    async def apply_ambience_async(self, ambience: PresetAmbience) -> None:
+        """Apply a preset ambience (async)."""
+        if ambience.kelvin is not None:
+            await self.set_color_temperature_async(ambience.kelvin)
+        else:
+            await self.set_color_async(ambience.color)
+        await self.set_brightness_async(ambience.brightness)
+        await self.turn_on_async()
+
+    async def toggle_async(self) -> None:
+        """Toggle the light on/off based on current state (async)."""
+        current = await self.state_async()
+        if current.power == "on":
+            await self.turn_off_async()
+        else:
+            await self.turn_on_async()
+
+    async def snapshot_async(self) -> LightSnapshot:
+        """Capture the current light state as an immutable snapshot (async)."""
+        current = await self.state_async()
+        return LightSnapshot(
+            power=current.power,
+            brightness=current.brightness,
+            color=current.color,
+            color_temperature=current.color_temperature,
+            scene=current.scene,
         )

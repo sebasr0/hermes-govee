@@ -12,7 +12,7 @@ from hermes_govee.devices.light import GoveeLight
 class TestGoveeLightSync:
     @respx.mock
     def test_turn_on_sends_correct_command(self) -> None:
-        route = respx.post(
+        route = respx.put(
             "https://openapi.api.govee.com/v1/devices/control"
         ).mock(return_value=httpx.Response(200, json={"code": 200, "message": "success"}))
         info = DeviceInfo(
@@ -28,7 +28,7 @@ class TestGoveeLightSync:
 
     @respx.mock
     def test_set_color_sends_rgb_command(self) -> None:
-        route = respx.post(
+        route = respx.put(
             "https://openapi.api.govee.com/v1/devices/control"
         ).mock(return_value=httpx.Response(200, json={"code": 200, "message": "success"}))
         info = DeviceInfo(
@@ -80,7 +80,7 @@ class TestGoveeLightAsync:
     @respx.mock
     @pytest.mark.asyncio
     async def test_turn_on_async_sends_correct_command(self) -> None:
-        route = respx.post(
+        route = respx.put(
             "https://openapi.api.govee.com/v1/devices/control"
         ).mock(return_value=httpx.Response(200, json={"code": 200, "message": "success"}))
         info = DeviceInfo(

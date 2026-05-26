@@ -58,7 +58,7 @@ class BaseTransport:
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = _resolve_api_key(api_key)
-        self._base_url = base_url or _BASE_URL_SIMPLE
+        self._base_url = base_url or _BASE_URL_ROUTER
         self._client = httpx.Client(base_url=self._base_url, timeout=30.0)
 
     def _headers(self) -> Dict[str, str]:
@@ -105,7 +105,7 @@ class AsyncBaseTransport:
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = _resolve_api_key(api_key)
-        self._base_url = base_url or _BASE_URL_SIMPLE
+        self._base_url = base_url or _BASE_URL_ROUTER
         self._client = httpx.AsyncClient(base_url=self._base_url, timeout=30.0)
 
     def _headers(self) -> Dict[str, str]:
