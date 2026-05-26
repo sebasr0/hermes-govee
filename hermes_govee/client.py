@@ -38,11 +38,16 @@ def _parse_devices(api_data: dict) -> List[DeviceInfo]:
 
 
 class GoveeClient:
-    """Synchronous client for Govee Home devices."""
+    """Synchronous client for Govee Home devices.
 
-    def __init__(self, api_key: str | None = None) -> None:
+    Defaults to **Simple v1** (`developer-api.govee.com`) because most consumer
+    devices respond there with flat REST payloads.  Override ``base_url`` to
+    switch to Router v1 (`openapi.api.govee.com`) if needed.
+    """
+
+    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = _resolve_api_key(api_key)
-        self._transport = BaseTransport(api_key=self.api_key)
+        self._transport = BaseTransport(api_key=self.api_key, base_url=base_url)
 
     def devices(self) -> List[DeviceInfo]:
         """List all devices in the account."""
@@ -81,11 +86,15 @@ class GoveeClient:
 
 
 class AsyncGoveeClient:
-    """Asynchronous client for Govee Home devices."""
+    """Asynchronous client for Govee Home devices.
 
-    def __init__(self, api_key: str | None = None) -> None:
+    Defaults to **Simple v1** (`developer-api.govee.com`).  Override ``base_url``
+    to switch to Router v1 (`openapi.api.govee.com`) if needed.
+    """
+
+    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = _resolve_api_key(api_key)
-        self._transport = AsyncBaseTransport(api_key=self.api_key)
+        self._transport = AsyncBaseTransport(api_key=self.api_key, base_url=base_url)
 
     async def devices(self) -> List[DeviceInfo]:
         resp = await self._transport.get_devices()

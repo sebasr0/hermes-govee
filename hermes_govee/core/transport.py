@@ -16,7 +16,8 @@ from hermes_govee.core.exceptions import (
 )
 from hermes_govee.core.models import ApiResponse
 
-_BASE_URL = "https://openapi.api.govee.com"
+_BASE_URL_ROUTER = "https://openapi.api.govee.com"
+_BASE_URL_SIMPLE = "https://developer-api.govee.com"
 
 
 def _resolve_api_key(api_key: str | None) -> str:
@@ -53,11 +54,12 @@ def _raise_for_status(response: httpx.Response) -> None:
 
 
 class BaseTransport:
-    """Synchronous HTTP transport for the Govee OpenAPI."""
+    """Synchronous HTTP transport supporting both Simple v1 and Router v1 APIs."""
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = _resolve_api_key(api_key)
-        self._client = httpx.Client(base_url=_BASE_URL, timeout=30.0)
+        self._base_url = base_url or _BASE_URL_SIMPLE
+        self._client = httpx.Client(base_url=self._base_url, timeout=30.0)
 
     def _headers(self) -> Dict[str, str]:
         return {"Govee-API-Key": self.api_key}
@@ -86,7 +88,7 @@ class BaseTransport:
             "model": model,
             "cmd": cmd,
         }
-        return self._request("POST", "/v1/devices/control", json=payload)
+        return self._request("PUT", "/v1/devices/control", json=payload)
 
     def close(self) -> None:
         self._client.close()
@@ -99,11 +101,12 @@ class BaseTransport:
 
 
 class AsyncBaseTransport:
-    """Asynchronous HTTP transport for the Govee OpenAPI."""
+    """Asynchronous HTTP transport supporting both Simple v1 and Router v1 APIs."""
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
         self.api_key = _resolve_api_key(api_key)
-        self._client = httpx.AsyncClient(base_url=_BASE_URL, timeout=30.0)
+        self._base_url = base_url or _BASE_URL_SIMPLE
+        self._client = httpx.AsyncClient(base_url=self._base_url, timeout=30.0)
 
     def _headers(self) -> Dict[str, str]:
         return {"Govee-API-Key": self.api_key}
@@ -132,7 +135,7 @@ class AsyncBaseTransport:
             "model": model,
             "cmd": cmd,
         }
-        return await self._request("POST", "/v1/devices/control", json=payload)
+        return await self._request("PUT", "/v1/devices/control", json=payload)
 
     async def close(self) -> None:
         await self._client.aclose()
