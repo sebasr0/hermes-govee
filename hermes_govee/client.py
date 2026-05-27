@@ -22,17 +22,29 @@ def _resolve_api_key(api_key: str | None) -> str:
 
 
 def _parse_devices(api_data: dict) -> List[DeviceInfo]:
-    raw_devices = api_data.get("devices", [])
+    # Router API: data is a list of device dicts directly
+    # Simple v1: data.devices is a list wrapped in a dict
+    if isinstance(api_data, list):
+        raw_devices = api_data
+    elif isinstance(api_data, dict):
+        raw_devices = api_data.get("devices", [])
+    else:
+        raw_devices = []
+
     result: List[DeviceInfo] = []
     for raw in raw_devices:
-        # Govee API returns device fields as "device", "deviceName", "type", etc.
+        if not isinstance(raw, dict):
+            continue
         device_type = "light" if "light" in raw.get("type", "").lower() else "appliance"
+        # Router API uses "sku"; fall back to "model" for Simple v1
+        model = raw.get("sku", raw.get("model", ""))
         info = DeviceInfo(
             device_id=raw.get("device", ""),
-            name=raw.get("deviceName", ""),
+            name=raw.get("deviceName", raw.get("name", "")),
             type=device_type,
-            model=raw.get("model", ""),
+            model=model,
             online=raw.get("online", True),
+            capabilities=raw.get("capabilities", []),
         )
         result.append(info)
     return result
@@ -41,9 +53,8 @@ def _parse_devices(api_data: dict) -> List[DeviceInfo]:
 class GoveeClient:
     """Synchronous client for Govee Home devices.
 
-    Defaults to **Simple v1** (`developer-api.govee.com`) because most consumer
-    devices respond there with flat REST payloads.  Override ``base_url`` to
-    switch to Router v1 (`openapi.api.govee.com`) if needed.
+    Uses the **Router API** (`openapi.api.govee.com`) by default, with
+    auto-fallback to the Simple v1 endpoint for older accounts.
     """
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:
@@ -57,7 +68,6 @@ class GoveeClient:
 
     def device(self, device_id: str) -> GoveeLight:
         """Get a specific device by ID."""
-        # Query the device list and find the matching one
         all_devices = self.devices()
         for info in all_devices:
             if info.device_id == device_id:
@@ -98,8 +108,7 @@ class GoveeClient:
 class AsyncGoveeClient:
     """Asynchronous client for Govee Home devices.
 
-    Defaults to **Simple v1** (`developer-api.govee.com`).  Override ``base_url``
-    to switch to Router v1 (`openapi.api.govee.com`) if needed.
+    Uses the **Router API** by default with Simple v1 fallback.
     """
 
     def __init__(self, api_key: str | None = None, base_url: str | None = None) -> None:

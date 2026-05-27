@@ -4,24 +4,27 @@ from __future__ import annotations
 
 from typing import Optional, Tuple
 
-from hermes_govee.core.models import Color, DeviceInfo, LightState
+from hermes_govee.core.models import Color, LightState
 from hermes_govee.core.snapshot import LightSnapshot
 from hermes_govee.devices.base import GoveeDevice
 from hermes_govee.presets.ambiences import PresetAmbience
-from hermes_govee.utils import rgb_to_tuple
 
 
 class GoveeLight(GoveeDevice):
-    """A Govee light device (bulb, strip, lamp)."""
+    """A Govee light device (bulb, strip, lamp).
+
+    Uses the Router API under the hood — commands are translated from
+    the legacy cmd dict format to Router capability objects by the transport.
+    """
 
     def _send(self, name: str, value) -> None:
         """Send a command to this device."""
         cmd = self._command(name, value)
-        self._transport.send_command(self.device_id, self.model, cmd)
+        self._transport.send_command(self.model, self.device_id, cmd)
 
     async def _send_async(self, name: str, value) -> None:
         cmd = self._command(name, value)
-        await self._transport.send_command(self.device_id, self.model, cmd)
+        await self._transport.send_command(self.model, self.device_id, cmd)
 
     # --- Sync API ---
 
@@ -51,22 +54,39 @@ class GoveeLight(GoveeDevice):
         self._send("scene", name)
 
     def state(self) -> LightState:
-        """Query current state from the API."""
-        resp = self._transport.get_state(self.device_id)
+        """Query current state from the API.
+
+        Parses the Router API capability array into LightState.
+        """
+        resp = self._transport.get_state(self.model, self.device_id)
         data = resp.data or {}
-        properties = data.get("properties", {})
-        color_data = properties.get("color", {})
-        color = (
-            Color(r=color_data["r"], g=color_data["g"], b=color_data["b"])
-            if color_data
-            else None
-        )
+        capabilities: list[dict] = data.get("capabilities", [])
+
+        power_val = 0
+        brightness_val = 0
+        color_val: Optional[Color] = None
+        ct_val: Optional[int] = None
+
+        for cap in capabilities:
+            inst = cap.get("instance", "")
+            state = cap.get("state", {})
+            val = state.get("value")
+
+            if inst == "powerSwitch":
+                power_val = int(val) if val in (0, 1) else 0
+            elif inst == "brightness":
+                brightness_val = int(val) if val is not None else 0
+            elif inst == "colorRgb":
+                if val is not None:
+                    color_val = Color.unpack(int(val))
+            elif inst == "colorTemperatureK":
+                ct_val = int(val) if val is not None else None
+
         return LightState(
-            power=properties.get("power", "off"),
-            brightness=properties.get("brightness", 0),
-            color=color,
-            color_temperature=properties.get("colorTem"),
-            scene=properties.get("scene"),
+            power="on" if power_val == 1 else "off",
+            brightness=brightness_val,
+            color=color_val,
+            color_temperature=ct_val,
         )
 
     # --- Preset helpers (sync) ---
@@ -127,33 +147,42 @@ class GoveeLight(GoveeDevice):
         await self._send_async("scene", name)
 
     async def state_async(self) -> LightState:
-        resp = await self._transport.get_state(self.device_id)
+        resp = await self._transport.get_state(self.model, self.device_id)
         data = resp.data or {}
-        properties = data.get("properties", {})
-        color_data = properties.get("color", {})
-        color = (
-            Color(r=color_data["r"], g=color_data["g"], b=color_data["b"])
-            if color_data
-            else None
-        )
+        capabilities: list[dict] = data.get("capabilities", [])
+
+        power_val = 0
+        brightness_val = 0
+        color_val: Optional[Color] = None
+        ct_val: Optional[int] = None
+        for cap in capabilities:
+            inst = cap.get("instance", "")
+            state = cap.get("state", {})
+            val = state.get("value")
+            if inst == "powerSwitch":
+                power_val = int(val) if val in (0, 1) else 0
+            elif inst == "brightness":
+                brightness_val = int(val) if val is not None else 0
+            elif inst == "colorRgb":
+                if val is not None:
+                    color_val = Color.unpack(int(val))
+            elif inst == "colorTemperatureK":
+                ct_val = int(val) if val is not None else None
         return LightState(
-            power=properties.get("power", "off"),
-            brightness=properties.get("brightness", 0),
-            color=color,
-            color_temperature=properties.get("colorTem"),
-            scene=properties.get("scene"),
+            power="on" if power_val == 1 else "off",
+            brightness=brightness_val,
+            color=color_val,
+            color_temperature=ct_val,
         )
 
     # --- Preset helpers (async) ---
 
     async def apply_preset_color_async(self, color: Tuple[int, int, int]) -> None:
-        """Set brightness to 100, apply color, and turn on (async)."""
         await self.set_brightness_async(100)
         await self.set_color_async(color)
         await self.turn_on_async()
 
     async def apply_ambience_async(self, ambience: PresetAmbience) -> None:
-        """Apply a preset ambience (async)."""
         if ambience.kelvin is not None:
             await self.set_color_temperature_async(ambience.kelvin)
         else:
@@ -162,7 +191,6 @@ class GoveeLight(GoveeDevice):
         await self.turn_on_async()
 
     async def toggle_async(self) -> None:
-        """Toggle the light on/off based on current state (async)."""
         current = await self.state_async()
         if current.power == "on":
             await self.turn_off_async()
@@ -170,7 +198,6 @@ class GoveeLight(GoveeDevice):
             await self.turn_on_async()
 
     async def snapshot_async(self) -> LightSnapshot:
-        """Capture the current light state as an immutable snapshot (async)."""
         current = await self.state_async()
         return LightSnapshot(
             power=current.power,
