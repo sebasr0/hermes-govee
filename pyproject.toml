@@ -21,8 +21,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/hermes-tools/hermes-govee"
-Repository = "https://github.com/hermes-tools/hermes-govee"
+Homepage = "https://github.com/sebasr0/hermes-govee"
+Repository = "https://github.com/sebasr0/hermes-govee"
 
 [build-system]
 requires = ["hatchling"]
